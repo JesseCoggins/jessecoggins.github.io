@@ -261,7 +261,7 @@ main { position: relative; z-index: 2; }
   font-family: var(--font-serif);
   font-weight: 400;
   font-size: clamp(4rem, 12vw, 11rem);
-  line-height: 0.92;
+  line-height: 1.02;
   letter-spacing: -0.04em;
   margin-bottom: 32px;
 }
@@ -272,7 +272,8 @@ main { position: relative; z-index: 2; }
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  padding-left: 0.12em;
+  padding: 0 0.18em 0.12em 0.12em;
+  margin-left: -0.06em;
 }
 .role {
   font-size: 18px;
