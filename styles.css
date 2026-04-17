@@ -709,6 +709,8 @@ main { position: relative; z-index: 2; }
   display: inline-block;
 }
 .footer-links a:hover { color: var(--accent-2); transform: translateX(4px); }
+.footer-links .button { display: inline-flex; color: var(--text); border-color: var(--border); }
+.footer-links .button:hover { color: var(--text); transform: translateY(-2px); border-color: var(--border-strong); }
 .muted { color: var(--text-muted); }
 
 .footer-rule { height: 1px; background: var(--border); margin-bottom: 28px; }
