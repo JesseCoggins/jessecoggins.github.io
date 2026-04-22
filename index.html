@@ -799,13 +799,25 @@
             </button>
           </div>
         </div>
-        <div class="resume-dialog-body">
-          <iframe
-            id="resume-frame"
-            class="resume-frame"
-            title="Jesse Coggins resume PDF"
-            src="about:blank"
-          ></iframe>
+        <div class="resume-dialog-body" id="resume-dialog-body">
+          <div class="resume-viewer" id="resume-viewer">
+            <div class="resume-viewer-status" id="resume-viewer-status" role="status" aria-live="polite">
+              <span class="resume-spinner" aria-hidden="true"></span>
+              <span id="resume-viewer-status-text">Loading resume preview…</span>
+            </div>
+            <div class="resume-viewer-error" id="resume-viewer-error" hidden>
+              <p id="resume-viewer-error-text">Unable to render the preview in this viewer.</p>
+              <a
+                class="button button-ghost"
+                href="assets/resume/Jesse_Coggins_Resume.pdf"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span>Open PDF</span>
+              </a>
+            </div>
+            <div class="resume-page-stack" id="resume-page-stack" hidden></div>
+          </div>
         </div>
       </div>
     </dialog>
@@ -842,17 +854,175 @@
       });
 
       const resumeDialog = document.getElementById('resume-dialog');
-      const resumeFrame = document.getElementById('resume-frame');
+      const resumeDialogBody = document.getElementById('resume-dialog-body');
       const resumeCloseButton = document.querySelector('[data-resume-close]');
       const resumeTriggers = document.querySelectorAll('[data-resume-trigger]');
+      const resumeViewerStatus = document.getElementById('resume-viewer-status');
+      const resumeViewerStatusText = document.getElementById('resume-viewer-status-text');
+      const resumeViewerError = document.getElementById('resume-viewer-error');
+      const resumeViewerErrorText = document.getElementById('resume-viewer-error-text');
+      const resumePageStack = document.getElementById('resume-page-stack');
       const resumeSource = 'assets/resume/Jesse_Coggins_Resume.pdf';
+      const resumePdfJsModuleUrl = new URL('assets/vendor/pdfjs/pdf.min.mjs', window.location.href).href;
+      const resumePdfJsWorkerUrl = new URL('assets/vendor/pdfjs/pdf.worker.min.mjs', window.location.href).href;
       let lastResumeTrigger = null;
+      let resumePdfJsPromise = null;
+      let resumePdfDocumentPromise = null;
+      let resumePdfDocument = null;
+      let resumeRenderFrame = null;
+      let resumeRenderToken = 0;
+      let resumeRenderedWidth = 0;
 
       if (resumeDialog && typeof resumeDialog.showModal === 'function') {
         resumeTriggers.forEach((trigger) => {
           trigger.setAttribute('aria-haspopup', 'dialog');
           trigger.setAttribute('aria-controls', 'resume-dialog');
         });
+      }
+
+      const setResumeViewerState = (state, message = '') => {
+        if (resumeViewerStatus) resumeViewerStatus.hidden = state !== 'loading';
+        if (resumePageStack) resumePageStack.hidden = state !== 'ready';
+        if (resumeViewerError) resumeViewerError.hidden = state !== 'error';
+
+        if (state === 'loading' && resumeViewerStatusText) {
+          resumeViewerStatusText.textContent = message || 'Loading resume preview…';
+        }
+
+        if (state === 'error' && resumeViewerErrorText) {
+          resumeViewerErrorText.textContent = message || 'Unable to render the preview in this viewer.';
+        }
+      };
+
+      const getResumePreviewWidth = () => {
+        const dialogWidth = resumeDialogBody?.clientWidth || resumeDialog?.clientWidth || 0;
+        return Math.max(240, Math.floor(dialogWidth - 56));
+      };
+
+      const loadResumePdfJs = async () => {
+        if (!resumePdfJsPromise) {
+          resumePdfJsPromise = import(resumePdfJsModuleUrl).then((pdfjsLib) => {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = resumePdfJsWorkerUrl;
+            return pdfjsLib;
+          });
+        }
+
+        return resumePdfJsPromise;
+      };
+
+      const loadResumeDocument = async () => {
+        if (resumePdfDocument) return resumePdfDocument;
+
+        if (!resumePdfDocumentPromise) {
+          resumePdfDocumentPromise = loadResumePdfJs()
+            .then((pdfjsLib) => pdfjsLib.getDocument({ url: resumeSource }).promise)
+            .then((pdf) => {
+              resumePdfDocument = pdf;
+              return pdf;
+            })
+            .catch((error) => {
+              resumePdfDocumentPromise = null;
+              throw error;
+            });
+        }
+
+        return resumePdfDocumentPromise;
+      };
+
+      const renderResumePreview = async () => {
+        if (!resumeDialogBody || !resumePageStack) return;
+
+        const targetWidth = getResumePreviewWidth();
+        if (resumePdfDocument && resumePageStack.childElementCount && Math.abs(targetWidth - resumeRenderedWidth) < 12) {
+          setResumeViewerState('ready');
+          return;
+        }
+
+        const currentToken = ++resumeRenderToken;
+        setResumeViewerState('loading');
+
+        try {
+          const pdf = await loadResumeDocument();
+          const outputScale = Math.min(window.devicePixelRatio || 1, 2);
+          const fragment = document.createDocumentFragment();
+
+          for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+            const page = await pdf.getPage(pageNumber);
+            const baseViewport = page.getViewport({ scale: 1 });
+            const scale = targetWidth / baseViewport.width;
+            const viewport = page.getViewport({ scale });
+
+            const pageItem = document.createElement('article');
+            pageItem.className = 'resume-page';
+
+            const pageLabel = document.createElement('p');
+            pageLabel.className = 'resume-page-label';
+            pageLabel.textContent = `Page ${pageNumber} of ${pdf.numPages}`;
+
+            const pageSurface = document.createElement('div');
+            pageSurface.className = 'resume-page-surface';
+
+            const canvas = document.createElement('canvas');
+            canvas.className = 'resume-page-canvas';
+            canvas.setAttribute('aria-label', `Resume page ${pageNumber} of ${pdf.numPages}`);
+
+            canvas.width = Math.floor(viewport.width * outputScale);
+            canvas.height = Math.floor(viewport.height * outputScale);
+            canvas.style.width = `${Math.floor(viewport.width)}px`;
+            canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+            const context = canvas.getContext('2d', { alpha: false });
+            await page.render({
+              canvasContext: context,
+              viewport,
+              transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null,
+            }).promise;
+
+            if (currentToken !== resumeRenderToken) return;
+
+            pageSurface.appendChild(canvas);
+            pageItem.append(pageLabel, pageSurface);
+            fragment.appendChild(pageItem);
+            page.cleanup();
+          }
+
+          if (currentToken !== resumeRenderToken) return;
+
+          resumePageStack.replaceChildren(fragment);
+          resumeRenderedWidth = targetWidth;
+          resumeDialogBody.scrollTop = 0;
+          setResumeViewerState('ready');
+        } catch (error) {
+          console.error('Resume preview rendering failed.', error);
+          if (currentToken !== resumeRenderToken) return;
+          setResumeViewerState(
+            'error',
+            'Unable to render the preview in this viewer. You can still open or download the PDF directly.'
+          );
+        }
+      };
+
+      const scheduleResumeRender = () => {
+        if (resumeRenderFrame) cancelAnimationFrame(resumeRenderFrame);
+        resumeRenderFrame = requestAnimationFrame(() => {
+          resumeRenderFrame = null;
+          void renderResumePreview();
+        });
+      };
+
+      const syncResumePreviewSize = () => {
+        if (!resumeDialog?.open || !resumePdfDocument) return;
+        if (Math.abs(getResumePreviewWidth() - resumeRenderedWidth) < 12) return;
+        scheduleResumeRender();
+      };
+
+      if (resumeDialogBody && 'ResizeObserver' in window) {
+        const resumeResizeObserver = new ResizeObserver(() => {
+          syncResumePreviewSize();
+        });
+        resumeResizeObserver.observe(resumeDialogBody);
+      } else {
+        window.addEventListener('resize', syncResumePreviewSize);
       }
 
       const cleanupResumeDialog = () => {
@@ -863,18 +1033,24 @@
 
       const openResumeDialog = (trigger) => {
         if (!resumeDialog || typeof resumeDialog.showModal !== 'function') return;
-        if (!resumeFrame.getAttribute('src') || resumeFrame.getAttribute('src') === 'about:blank') {
-          resumeFrame.setAttribute('src', resumeSource);
-        }
         lastResumeTrigger = trigger;
         document.body.classList.add('resume-modal-open');
         if (mobileNav) mobileNav.removeAttribute('open');
         if (!resumeDialog.open) resumeDialog.showModal();
+        scheduleResumeRender();
       };
 
       resumeTriggers.forEach((trigger) => {
         trigger.addEventListener('click', (event) => {
-          if (!resumeDialog || typeof resumeDialog.showModal !== 'function') return;
+          const isPlainActivation =
+            !event.defaultPrevented &&
+            event.button === 0 &&
+            !event.metaKey &&
+            !event.ctrlKey &&
+            !event.shiftKey &&
+            !event.altKey;
+
+          if (!resumeDialog || typeof resumeDialog.showModal !== 'function' || !isPlainActivation) return;
           event.preventDefault();
           openResumeDialog(trigger);
         });
