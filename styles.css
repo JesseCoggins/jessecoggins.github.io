@@ -707,9 +707,7 @@ main { position: relative; z-index: 2; }
 }
 .footer-meta { display: flex; align-items: center; gap: 14px; margin-bottom: 60px; }
 .footer-grid {
-  display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  gap: 80px;
+  max-width: 920px;
   margin-bottom: 100px;
 }
 .footer-display {
@@ -724,42 +722,6 @@ main { position: relative; z-index: 2; }
   max-width: 580px;
   margin-bottom: 36px;
 }
-.footer-links {
-  align-self: end;
-  min-width: 0;
-  padding: 30px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: rgba(232, 222, 199, 0.025);
-}
-.footer-links ul { display: flex; flex-direction: column; gap: 14px; }
-.footer-link-buttons { display: flex; flex-direction: column; gap: 12px; }
-.footer-email {
-  background: rgba(232, 222, 199, 0.08);
-  color: var(--text);
-  border-color: rgba(201, 182, 135, 0.2);
-}
-.footer-email:hover {
-  background: rgba(232, 222, 199, 0.12);
-  color: var(--text);
-  border-color: rgba(201, 182, 135, 0.36);
-}
-.footer-location { font-size: 12px; padding-top: 4px; width: 100%; }
-.footer-links a {
-  font-size: 14px;
-  color: var(--text-dim);
-  transition: color 0.2s var(--ease), transform 0.2s var(--ease);
-  display: inline-block;
-}
-.footer-links a:hover { color: var(--accent-2); transform: translateX(4px); }
-.footer-links .button { display: inline-flex; color: var(--text); border-color: var(--border); }
-.footer-links .footer-link-btn {
-  width: 100%;
-  min-width: 0;
-  justify-content: flex-start;
-}
-.footer-links .footer-link-btn span { overflow-wrap: anywhere; }
-.footer-links .button:hover { color: var(--text); transform: translateY(-2px); border-color: var(--border-strong); }
 .muted { color: var(--text-muted); }
 
 .footer-rule { height: 1px; background: var(--border); margin-bottom: 28px; }
@@ -920,7 +882,6 @@ main { position: relative; z-index: 2; }
   .project-atlas-spotlight-grid { grid-template-columns: 1fr; }
   .education-layout { grid-template-columns: 1fr; }
   .cert-card { position: static; }
-  .footer-grid { grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr); gap: 48px; }
 }
 
 @media (max-width: 768px) {
@@ -933,8 +894,6 @@ main { position: relative; z-index: 2; }
   .nav { gap: 12px; }
   .nav-actions { margin-left: auto; }
   .featured-grid, .atlas-grid, .skills-grid { grid-template-columns: 1fr; }
-  .footer-grid { grid-template-columns: 1fr; gap: 60px; }
-  .footer-links { align-self: stretch; }
   .resume-dialog {
     width: calc(100vw - 20px);
     height: calc(100vh - 20px);
